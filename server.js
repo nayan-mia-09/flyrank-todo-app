@@ -16,6 +16,7 @@ let tasks = [
     {id: 2, title: "Write code", done: true},
     {id: 3, title: "Assignment completed", done: true}
 ]
+let nextId = 4;
 
 app.get("/",(req,res)=>{
     res.json({ "name": "Task API", "version": "1.0", "endpoints": ["/tasks"] })
@@ -39,6 +40,20 @@ app.get("/tasks/:id",(req,res)=>{
     res.status(404).json({error: `Task ${id} not found.`})
   }
   res.json(task);
+})
+
+// create task 
+app.post("/tasks",(req,res)=>{
+    
+    const {title} = req.body;
+
+    if(!title || title.trim() === ""){
+        res.status(400).json({error: "title is required and cannot be empty"});
+    };
+
+    const newTasks = {id: nextId++, title, done: false};
+    tasks.push(newTasks);
+    res.status(201).json(newTasks);
 })
 app.listen(port,()=>{
     console.log(`Server running on Port: ${port}`)
