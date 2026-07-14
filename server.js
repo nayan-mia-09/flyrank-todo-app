@@ -1,5 +1,7 @@
 
 import express from 'express';
+import swaggerUi from "swagger-ui-express";
+import { readFileSync } from "fs";
 import { error } from 'node:console';
 
 const app = express();
@@ -8,6 +10,11 @@ const port = 3000;
 
 // middleware to parse incoming json request bodies
 app.use(express.json());
+
+// Load the OpenAPI spec (safer than JSON import assertions across Node versions)
+const openapiDocument = JSON.parse(readFileSync("./openapi.json", "utf-8"));
+
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(openapiDocument));
 
 // In-memory database
 
