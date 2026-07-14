@@ -1,0 +1,25 @@
+{
+  "name": "flyrank-todo-app",
+  "version": "1.0.0",
+  "description": "flyrank-todo-app",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nayan-mia-09/flyrank-todo-app.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/nayan-mia-09/flyrank-todo-app/issues"
+  },
+  "homepage": "https://github.com/nayan-mia-09/flyrank-todo-app#readme",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
