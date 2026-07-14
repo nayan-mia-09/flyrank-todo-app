@@ -44,7 +44,7 @@ app.get("/tasks/:id",(req,res)=>{
 
 // create task 
 app.post("/tasks",(req,res)=>{
-    
+
     const {title} = req.body;
 
     if(!title || title.trim() === ""){
@@ -54,6 +54,36 @@ app.post("/tasks",(req,res)=>{
     const newTasks = {id: nextId++, title, done: false};
     tasks.push(newTasks);
     res.status(201).json(newTasks);
+})
+
+// task update
+app.put("/tasks/:id",(req,res)=>{
+    const id = Number(req.params.id);
+    const task = tasks.find(t => t.id === id);
+    if(!task){
+        return res.status(404).json({error: `task ${id} not found`})
+    };
+
+    const {title, done} = req.body || {};
+    if(title !== undefined && title.trim() === ""){
+        return res.status(400).json({error: "title cannot be empty"})
+    };
+
+    if(title !== undefined) task.title = title;
+    if(done !== undefined) task.done = done;
+
+    res.json(task)
+})
+
+// task delete
+app.delete("/tasks/delete/:id",(req,res)=>{
+    const id = Number(req.params.id);
+    const index = tasks.findIndex(t => t.id === id);
+    if(index === -1){
+        return res.status(404).json({error: `Task ${id} not found.`})
+    }
+    tasks.splice(index,1);
+    res.status(204).send()
 })
 app.listen(port,()=>{
     console.log(`Server running on Port: ${port}`)
