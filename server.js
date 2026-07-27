@@ -3,6 +3,7 @@ import express from 'express';
 import swaggerUi from "swagger-ui-express";
 import { readFileSync } from "fs";
 import { error } from 'node:console';
+import db from './db.js';
 
 const app = express();
 
@@ -35,6 +36,7 @@ app.get("/health",(req,res)=>{
 
 // get all task
 app.get("/tasks",(req,res)=>{
+    const tasks = db.prepare("SELECT * FROM tasks").all(); 
     res.json(tasks)
 });
 
@@ -42,7 +44,7 @@ app.get("/tasks",(req,res)=>{
 app.get("/tasks/:id",(req,res)=>{
   const id = Number(req.params.id);
 
-  const task = tasks.find(t => t.id === id);
+  const task = db.prepare("SELECT * FROM tasks WHERE id = ?").get(id);
   if(!task) {
     res.status(404).json({error: `Task ${id} not found.`})
   }
