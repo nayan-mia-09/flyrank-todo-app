@@ -69,34 +69,41 @@ app.post("/tasks",(req,res)=>{
 })
 
 // task update
-app.put("/tasks/:id",(req,res)=>{
+app.put("/tasks/:id", (req, res) => {
     const id = Number(req.params.id);
-    const task = tasks.find(t => t.id === id);
-    if(!task){
-        return res.status(404).json({error: `task ${id} not found`})
-    };
+    const existing = db.prepare("SELECT * FROM tasks WHERE id = ?").get(id);
 
-    const {title, done} = req.body || {};
-    if(title !== undefined && title.trim() === ""){
-        return res.status(400).json({error: "title cannot be empty"})
-    };
+    if (!existing) {
+        return res.status(404).json({ error: `task ${id} not found` });
+    }
 
-    if(title !== undefined) task.title = title;
-    if(done !== undefined) task.done = done;
+    const { title, done } = req.body || {};
+    if (title !== undefined && title.trim() === "") {
+        return res.status(400).json({ error: "title cannot be empty" });
+    }
 
-    res.json(task)
-})
+    const updatedTitle = title !== undefined ? title : existing.title;
+    const updatedDone = done !== undefined ? (done ? 1 : 0) : existing.done;
+
+    db.prepare("UPDATE tasks SET title = ?, done = ? WHERE id = ?")
+      .run(updatedTitle, updatedDone, id);
+
+    const updatedTask = db.prepare("SELECT * FROM tasks WHERE id = ?").get(id);
+    res.json(updatedTask);
+});
 
 // task delete
-app.delete("/tasks/delete/:id",(req,res)=>{
+app.delete("/tasks/:id", (req, res) => {
     const id = Number(req.params.id);
-    const index = tasks.findIndex(t => t.id === id);
-    if(index === -1){
-        return res.status(404).json({error: `Task ${id} not found.`})
+    const existing = db.prepare("SELECT * FROM tasks WHERE id = ?").get(id);
+
+    if (!existing) {
+        return res.status(404).json({ error: `Task ${id} not found.` });
     }
-    tasks.splice(index,1);
-    res.status(204).send()
-})
+
+    db.prepare("DELETE FROM tasks WHERE id = ?").run(id);
+    res.status(204).send();
+});
 app.listen(port,()=>{
     console.log(`Server running on Port: ${port}`)
 })
