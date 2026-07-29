@@ -1,26 +1,37 @@
-# Task API
+# Task API — Containerized Postgres
 
-A CRUD API for managing a to-do list, built with Node.js and Express, backed by a SQLite database.
-Built as part of the FlyRank AI Backend Engineering track (Week 3, BE-A2 — sequel to Week 2's BE-01).
+A CRUD API for managing a to-do list, built with Node.js and Express, now backed by a containerized PostgreSQL database and orchestrated with Docker Compose.
+Built as part of the FlyRank AI Backend Engineering track (Week 1, BE-A3 — third storage swap in the same repo: memory → SQLite → containerized Postgres).
 
 ## How to run
 
-\`\`\`bash
-npm install
-node --experimental-sqlite server.js
-\`\`\`
+```bash
+cp .env.example .env
+docker compose up
+```
 
 Server runs on `http://localhost:3000`. Swagger docs at `http://localhost:3000/docs`.
 
-On first run, `tasks.db` is created automatically with a `tasks` table and 3 seed examples. The database file is git-ignored, so every fresh clone starts clean.
+That's it — one command brings up the API **and** the database together. No local Postgres install, no manual table setup. On first run, the `tasks` table is created automatically and seeded with 3 example tasks. Stop everything with `docker compose down`; your data survives because it lives in a named Docker volume, not inside the container.
 
-## Why SQLite
+## Why Postgres (and why Docker)
 
-SQLite needs no separate server or install — it's a single file (`tasks.db`) that lives right in the project folder. That made it the right fit here: zero configuration, and unlike the in-memory storage from Week 2, data now survives a server restart. The API's endpoints and responses are unchanged from Week 2 — only the storage layer underneath moved from a JavaScript array to disk.
+The previous version (BE-A2) used SQLite — a single file on disk, zero configuration, but ultimately a single-machine, single-file model. This week's upgrade moves storage to PostgreSQL, a real database server — the same kind of engine behind most production backends, FlyRank included.
 
-## A note on the library
+Running Postgres via Docker means never installing or fighting version conflicts locally — the official `postgres` image behaves identically on any machine. Docker Compose then wraps *both* the API and the database into one file, so the whole stack starts and stops as a unit.
 
-The assignment recommends `better-sqlite3`, but its installer requires a native C++ build step (Python + Visual Studio Build Tools), which failed on this machine due to a broken local Python setup. Instead, this project uses Node's built-in `node:sqlite` module (`DatabaseSync`), available experimentally in Node 22+. Its API (`.prepare()`, `.get()`, `.all()`, `.run()`) is deliberately modeled after `better-sqlite3`, so the code is functionally equivalent — synchronous calls, same parameterized-query pattern. Since it's still experimental, it requires the `--experimental-sqlite` flag when starting the server.
+The API's endpoints and behavior are unchanged from Week 2 and BE-A2 — only the storage layer underneath moved, for the third time, from a JavaScript array → a SQLite file → Postgres rows in a container. Same routes, same responses, same validation. That consistency is the point: storage is just an implementation detail.
+
+## Stack
+
+| Layer | Technology |
+|---|---|
+| API | Node.js + Express |
+| Database | PostgreSQL 16 (`postgres:16-alpine`) |
+| Driver | `pg` (node-postgres), parameterized queries (`$1`, `$2`, …) |
+| Orchestration | Docker + Docker Compose |
+| Secrets | `.env` (git-ignored), `.env.example` committed |
+| Persistence | Named Docker volume (`taskdata`) |
 
 ## Endpoints
 
@@ -36,16 +47,26 @@ The assignment recommends `better-sqlite3`, but its installer requires a native 
 
 ## Example request
 
-\`\`\`bash
+```bash
 curl -i -X POST http://localhost:3000/tasks -H "Content-Type: application/json" -d "{\"title\":\"Buy milk\"}"
-\`\`\`
+```
 
-\`\`\`
+```
 HTTP/1.1 201 Created
 Content-Type: application/json; charset=utf-8
 
-{"id":4,"title":"Buy milk","done":0}
-\`\`\`
+{"id":4,"title":"Buy milk","done":false}
+```
+
+## Environment variables
+
+Copy `.env.example` to `.env` before running. Required keys:
+
+```
+DATABASE_URL=postgres://postgres:dev@db:5432/tasks
+```
+
+`.env` is git-ignored — it never gets committed. `.env.example` holds the same keys with placeholder values so anyone cloning the repo knows what to set.
 
 ## Swagger UI
 
@@ -53,12 +74,34 @@ Content-Type: application/json; charset=utf-8
 
 ## Database
 
-Data lives in `tasks.db`, a SQLite database created automatically on first run. It's git-ignored so each clone starts with a fresh seed of 3 example tasks.
+Data lives in a Postgres container (`db` service), backed by the named volume `taskdata` — so it survives `docker compose down` / `docker compose up` cycles. On a fresh clone with no volume yet, the table is created and seeded automatically on first run.
 
-![DB Browser screenshot](./public/db_browser_img_1.png,./public/db_browser_img_2.png,./public/db_browser_img_3.png)
+![DB screenshot](./public/db_browser_img_1.png)
 
-Example query run directly in DB Browser: `SELECT * FROM tasks WHERE done = 1;` — returned only the tasks marked complete, confirming the API and DB Browser read and write the exact same file with no syncing needed.
+Example query, run inside the container: `docker exec -it taskdb psql -U postgres -d tasks -c "SELECT * FROM tasks WHERE done = true;"` — returned only the tasks marked complete, confirming reads/writes go straight to Postgres with no syncing layer involved.
+
+## Mistakes made & how they were fixed
+
+Four real issues came up while building this — kept here because working through them is most of what this assignment actually teaches.
+
+**1. JSON syntax error in requests**
+`SyntaxError: Expected double-quoted property name in JSON at position 30` — caused by single quotes or trailing commas in request bodies, or by sending a body on a `DELETE` request. Fixed by using strict double-quoted JSON and dropping the body entirely from `DELETE` calls (the id travels in the URL, not the payload).
+
+**2. Table name mismatch**
+`{ "error": "relation \"task\" does not exist" }` — SQL queries referenced the singular `task` while the table was created as `tasks`. Fixed by standardizing every CRUD query to the plural `tasks`.
+
+**3. Missing Dockerfile during build**
+`failed to solve: failed to read dockerfile: open Dockerfile: no such file or directory` — the file was either missing from the project root or saved with an unwanted extension (`Dockerfile.txt`). Fixed by creating a proper, extensionless `Dockerfile` at the root (`FROM node:22-alpine`, `WORKDIR`, `RUN npm install`, `CMD ["node", "server.js"]`).
+
+**4. Volume compatibility & port conflict**
+Postgres logged a directory-compatibility warning on the mounted volume, and `docker compose up` separately failed with `listen tcp 0.0.0.0:3000: bind: Only one usage of each socket address is normally permitted`. Fixed by pinning the image to `postgres:16-alpine` for clean volume handling, clearing stale volumes with `docker compose down -v`, and killing the local Node process that was already holding port 3000 before bringing the stack up again.
+
+## Key takeaways
+
+- **Secrets stay out of code.** All configuration lives in `.env`; services talk to each other over Docker's internal network by service name (`db`), never `localhost` or a hardcoded address.
+- **Persistence is real.** `docker compose down` followed by `docker compose up` keeps every task record — the named volume, not the container, owns the data.
+- **One command, any machine.** Clone the repo, `cp .env.example .env`, `docker compose up` — a working stack in under 2 minutes, no manual Postgres setup required.
 
 ## Notes
 
-Data now persists across restarts (SQLite, `tasks.db`) — this fixes the Week 2 limitation where tasks reset on every restart. All CRUD operations use parameterized queries (`?` placeholders) to keep user input safe from SQL injection.
+All CRUD operations use parameterized queries (`$1`, `$2`, …) via `pg`, keeping user input safe from SQL injection. This is the third storage engine this API has run on (memory → SQLite → Postgres) with identical routes and responses throughout — proof that swapping the storage layer never had to touch the API surface.
