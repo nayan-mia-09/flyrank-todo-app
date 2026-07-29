@@ -1,21 +1,29 @@
-import { DatabaseSync } from 'node:sqlite';
+import pg from "pg";
+import dotenv from 'dotenv';
 
-const db = new DatabaseSync('tasks.db');
+dotenv.config();
 
-// Create table if it does not exist
-db.exec(`CREATE TABLE IF NOT EXISTS tasks(
-     id INTEGER PRIMARY KEY AUTOINCREMENT,
-     title TEXT NOT NULL,
-     done INTEGER NOT NULL DEFAULT 0
-    )`);
+const pool = new pg.Pool({
+    connectionString: process.env.DATABASE_URL,
+});
 
-// Seed only if empty
-const count = db.prepare('SELECT COUNT(*) AS count FROM tasks').get().count;
-if (count === 0) {
-    const insert = db.prepare('INSERT INTO tasks (title, done) VALUES (?, ?)');
-    insert.run('Buy groceries', 0);
-    insert.run('Finish assignment', 0);
-    insert.run('Read a book', 0);
-}
+export async function initDB(params) {
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS tasks (
+        id SERIAL PRIMARY KEY,
+        title TEXT NOT NULL,
+        done BOOLEAN DEFAULT FALSE)`);
 
-export default db;
+        const res = await pool.query('SELECT COUNT(*) AS count FROM tasks');
+        const count = parseInt(res.rows[0].count,10);
+
+        if(count === 0){
+            await pool.query(`
+                INSERT INTO tasks (title,done) VALUES ('Buy groceries',false), ('Finish assignment',false),
+                ('Read a book',false);
+                `);
+                console.log('Database seeded with 3 initial tasks')
+        }
+};
+
+export default pool;

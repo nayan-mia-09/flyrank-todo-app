@@ -3,7 +3,7 @@ import express from 'express';
 import swaggerUi from "swagger-ui-express";
 import { readFileSync } from "fs";
 import { error } from 'node:console';
-import db from './db.js';
+import  { initDB } from './db.js';
 
 const app = express();
 
@@ -104,6 +104,9 @@ app.delete("/tasks/:id", (req, res) => {
     db.prepare("DELETE FROM tasks WHERE id = ?").run(id);
     res.status(204).send();
 });
+
+
+initDB().then(()=> console.log('Postgres initialized')).catch((err)=> console.error('DB Error:', err));
 app.listen(port,()=>{
     console.log(`Server running on Port: ${port}`)
 })

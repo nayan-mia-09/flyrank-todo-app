@@ -20,7 +20,9 @@
   },
   "homepage": "https://github.com/nayan-mia-09/flyrank-todo-app#readme",
   "dependencies": {
+    "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "pg": "^8.22.0",
     "swagger-ui-express": "^5.0.1"
   }
 }
