@@ -1,13 +1,20 @@
 
+import { createClient } from '@supabase/supabase-js'
+const supabaseUrl = 'https://mlapuyasdlmawetfvelv.supabase.co'
+const supabaseKey = process.env.SUPABASE_KEY
+const supabase = createClient(supabaseUrl, supabaseKey)
+
 import express from 'express';
 import swaggerUi from "swagger-ui-express";
 import { readFileSync } from "fs";
 import { error } from 'node:console';
 import  pool, { initDB } from './db.js';
+import dotenv from 'dotenv';
 
+dotenv.config()
 const app = express();
 
-const port = 3000;
+const port = process.env.PORT;
 
 // middleware to parse incoming json request bodies
 app.use(express.json());
