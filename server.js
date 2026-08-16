@@ -119,22 +119,6 @@ app.delete("/tasks/:id", async(req, res) => {
    }
 });
 
-// Public and Protected gates
-
-// get public info
-app.get("/public/info", (req, res) => {
-  res.status(200).json({ message: "Welcome stranger! This info is public." });
-});
-// Protected gates
-app.get("/protected/profile",async(req,res)=>{
-    const authHeader = req.headers['authorization'];
-    if(!authHeader || !authHeader.startsWith('Bearer')){
-        return res.status(401).json({error: 'Access token required.'})
-    };
-    const token = authHeader.split(' ')[1];
-
-    res.status(200).json({message: "Token received(not yet verified)",token})
-})
 // Auth Routes Stage 01
 // Sign Up
 
@@ -171,7 +155,27 @@ app.post("/auth/login", async(req,res)=>{
     });
 });
 
+// Public and Protected gates
 
+// get public info
+app.get("/public/info", (req, res) => {
+  res.status(200).json({ message: "Welcome stranger! This info is public." });
+});
+// Protected gates
+app.get("/protected/profile", async (req, res) => {
+     const authHeader = req.headers['authorization']; 
+     if(!authHeader || !authHeader.startsWith('Bearer ')){
+         return res.status(401).json({ error: 'Access token required' }); } 
+
+         const token = authHeader.split(' ')[1]; 
+         const { data, error } = await supabase.auth.getUser(token); 
+         if(error){ 
+            return res.status(401).json({ error: 'Invalid or expired token' });
+        } 
+
+         return res.status(200).json({ id: data.user.id, email: data.user.email, created_at: data.user.created_at }); 
+
+    });
 
 
 
